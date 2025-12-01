@@ -24,7 +24,7 @@ public class SecurityController {
     @PostMapping("/handshake")
     public ResponseEntity<ServerKeyResponse> handshake(@RequestBody ClientPublicKeyRequest request) {
         try {
-            System.out.println(">>> [Handshake 요청] 클라이언트 공개키 수신됨");
+            log.info(">>> [Handshake 요청] 클라이언트 공개키 수신됨");
 
             // 1. 서버: 저장소용 AES 키 생성 (나중엔 DB에서 꺼내오는 로직으로 대체)
             KeysetHandle serverAesKey = cryptoManager.generateAesKey();
@@ -33,7 +33,7 @@ public class SecurityController {
             byte[] wrappedKey = keyExchangeService.wrapAesKey(serverAesKey, request.getPublicKeyJson());
 
             // 3. 응답: 포장된 키 전송
-            System.out.println(">>> [Handshake 응답] 암호화된 AES 키 전송 완료");
+            log.info(">>> [Handshake 응답] 암호화된 AES 키 전송 완료");
             return ResponseEntity.ok(new ServerKeyResponse(wrappedKey));
         } catch (Exception e) {
             log.error("핸드셰이크 실패", e);
