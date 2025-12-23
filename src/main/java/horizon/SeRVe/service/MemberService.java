@@ -66,6 +66,14 @@ public class MemberService {
     // 3. 멤버 강퇴
     @Transactional
     public void kickMember(String teamId, String targetUserId, String adminUserId) {
+        // [New] 강퇴 대상이 저장소 소유자(Owner)인지 확인하는 로직 추가
+        // 실수로 관리자가 소유자를 강퇴하여 저장소가 고아 상태가 되는 것을 방지
+        Team team = teamRepository.findByTeamId(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("저장소가 없습니다."));
+
+        if (team.getOwnerId().equals(targetUserId)) {
+            throw new SecurityException("저장소 소유자(Owner)는 강퇴할 수 없습니다.");
+        }
         RepositoryMember targetMember = validateAdminAndGetTarget(teamId, targetUserId, adminUserId);
         memberRepository.delete(targetMember);
     }
@@ -74,12 +82,20 @@ public class MemberService {
     @Transactional
     public void updateMemberRole(String teamId, String targetUserId, String adminUserId, UpdateRoleRequest req) {
         RepositoryMember targetMember = validateAdminAndGetTarget(teamId, targetUserId, adminUserId);
+        Role newRole;
         try {
-            Role newRole = Role.valueOf(req.getRole().toUpperCase());
-            targetMember.setRole(newRole);
+            newRole = Role.valueOf(req.getRole().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("유효하지 않은 Role입니다.");
         }
+
+        // [Modified] 보안 패치: 소유자(Owner)가 자신의 권한을 MEMBER로 내리는 것을 차단
+        boolean isOwner = targetMember.getTeam().getOwnerId().equals(targetUserId);
+        if (isOwner && newRole != Role.ADMIN) {
+            throw new SecurityException("저장소 소유자(Owner)는 권한을 변경할 수 없습니다. (항상 ADMIN 유지)");
+        }
+
+        targetMember.setRole(newRole);
     }
 
     // [Helper] 권한 검증 및 타겟 조회
